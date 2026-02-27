@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info:
+  title: Pagooz API
+  version: "1.0"
+servers:
+  - url: https://api.pagooz.com/v1
+
+paths:
+  /payment_intents:
+    post:
+      summary: Create PaymentIntent
+      responses:
+        "201":
+          description: Created
+
+  /quotes:
+    post:
+      summary: Create Quote
+      responses:
+        "201":
+          description: Created
+
+  /checkout_sessions:
+    post:
+      summary: Create Checkout Session
+      responses:
+        "201":
+          description: Created
+
+  /fx_batches:
+    post:
+      summary: Create FX Batch
+      responses:
+        "201":
+          description: Created
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
