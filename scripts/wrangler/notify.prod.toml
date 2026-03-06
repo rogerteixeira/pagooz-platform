@@ -1,0 +1,27 @@
+name = "pagooz-notify-prod"
+main = "apps/notification-worker/src/index.ts"
+compatibility_date = "2026-03-06"
+workers_dev = true
+
+[vars]
+ENVIRONMENT = "prod"
+APP_NAME = "pagooz-notify"
+DEFAULT_LOCALE = "en"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pagooz_d1_prod"
+database_id = "COLE_AQUI_O_DATABASE_ID_DO_PROD"
+
+[[queues.consumers]]
+queue = "q-notification-outbox"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[[queues.consumers]]
+queue = "q-webhook-outbox"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[observability]
+enabled = true

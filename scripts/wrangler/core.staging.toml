@@ -1,0 +1,29 @@
+name = "pagooz-core-staging"
+main = "apps/core-worker/src/index.ts"
+compatibility_date = "2026-03-06"
+workers_dev = true
+
+[vars]
+ENVIRONMENT = "staging"
+APP_NAME = "pagooz-core"
+DEFAULT_LOCALE = "en"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pagooz_d1_staging"
+database_id = "COLE_AQUI_O_DATABASE_ID_DO_STAGING"
+
+[[queues.producers]]
+binding = "Q_LEDGER_COMMANDS"
+queue = "q-ledger-commands"
+
+[[queues.producers]]
+binding = "Q_NOTIFICATION_OUTBOX"
+queue = "q-notification-outbox"
+
+[[queues.producers]]
+binding = "Q_WEBHOOK_OUTBOX"
+queue = "q-webhook-outbox"
+
+[observability]
+enabled = true
