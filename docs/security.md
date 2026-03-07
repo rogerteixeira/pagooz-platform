@@ -14,6 +14,17 @@
 - Permission-based route protection
 - Superadmin access strictly controlled
 
+Current API scope model:
+- `payment_intents:write`
+- `payment_intents:read`
+- `quotes:write`
+- `quotes:read`
+- `checkout_sessions:write`
+- `checkout_sessions:read`
+
+Policy note:
+- `admin` role can bypass scope checks for operational access.
+
 ## Critical Operations (require audit log)
 
 - Pricing changes

@@ -1,0 +1,10 @@
+node_modules/
+.wrangler/
+scripts/.wrangler/
+coverage/
+dist/
+.tmp/
+.DS_Store
+.env
+.env.*
+!.env.example

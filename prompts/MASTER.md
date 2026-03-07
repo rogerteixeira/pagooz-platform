@@ -11,7 +11,23 @@ Use these documents as source of truth:
 - docs/i18n/keys.md
 - docs/fx/providers.md
 - docs/openapi/v1.yaml
-- migrations/0001_init.sql
+- wrangler/migrations/0001_init.sql
+- wrangler/migrations/0002_indexes.sql
+- wrangler/core.toml
+- wrangler/ledger.toml
+- wrangler/notification.toml
+
+Infrastructure environment model (must match repo):
+
+- local
+- dev
+- staging
+- prod
+
+Customer operation mode model (must remain strict):
+
+- sandbox
+- live
 
 Generate:
 
@@ -23,7 +39,6 @@ Tech:
 
 - Cloudflare Workers
 - D1
-- Durable Objects
 - Queues
 - TypeScript
 - Zod validation

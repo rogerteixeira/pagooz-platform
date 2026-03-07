@@ -1,0 +1,127 @@
+name = "pagooz-notification-local"
+main = "../apps/notification-worker/src/index.ts"
+compatibility_date = "2026-03-06"
+workers_dev = true
+
+[vars]
+ENVIRONMENT = "local"
+APP_NAME = "pagooz-notification"
+DEFAULT_LOCALE = "en"
+APP_VERSION = "0.1.0"
+GIT_SHA = "unknown"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pagooz_d1_local"
+database_id = "11111111-1111-1111-1111-111111111111"
+migrations_dir = "./migrations"
+
+[[queues.consumers]]
+queue = "q-notification-outbox-local"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[[queues.consumers]]
+queue = "q-webhook-outbox-local"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[[r2_buckets]]
+binding = "NOTIFICATION_ASSETS_BUCKET"
+bucket_name = "pagooz-notification-assets-local"
+
+[observability]
+enabled = true
+
+[env.dev]
+name = "pagooz-notification-dev"
+workers_dev = true
+
+[env.dev.vars]
+ENVIRONMENT = "dev"
+APP_NAME = "pagooz-notification"
+DEFAULT_LOCALE = "en"
+APP_VERSION = "0.1.0"
+GIT_SHA = "unknown"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "pagooz_d1_dev"
+database_id = "22222222-2222-2222-2222-222222222222"
+migrations_dir = "./migrations"
+
+[[env.dev.queues.consumers]]
+queue = "q-notification-outbox-dev"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[[env.dev.queues.consumers]]
+queue = "q-webhook-outbox-dev"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[[env.dev.r2_buckets]]
+binding = "NOTIFICATION_ASSETS_BUCKET"
+bucket_name = "pagooz-notification-assets-dev"
+
+[env.staging]
+name = "pagooz-notification-staging"
+workers_dev = true
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+APP_NAME = "pagooz-notification"
+DEFAULT_LOCALE = "en"
+APP_VERSION = "0.1.0"
+GIT_SHA = "unknown"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "pagooz_d1_staging"
+database_id = "33333333-3333-3333-3333-333333333333"
+migrations_dir = "./migrations"
+
+[[env.staging.queues.consumers]]
+queue = "q-notification-outbox-staging"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[[env.staging.queues.consumers]]
+queue = "q-webhook-outbox-staging"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[[env.staging.r2_buckets]]
+binding = "NOTIFICATION_ASSETS_BUCKET"
+bucket_name = "pagooz-notification-assets-staging"
+
+[env.prod]
+name = "pagooz-notification-prod"
+workers_dev = true
+
+[env.prod.vars]
+ENVIRONMENT = "prod"
+APP_NAME = "pagooz-notification"
+DEFAULT_LOCALE = "en"
+APP_VERSION = "0.1.0"
+GIT_SHA = "unknown"
+
+[[env.prod.d1_databases]]
+binding = "DB"
+database_name = "pagooz_d1_prod"
+database_id = "44444444-4444-4444-4444-444444444444"
+migrations_dir = "./migrations"
+
+[[env.prod.queues.consumers]]
+queue = "q-notification-outbox-prod"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[[env.prod.queues.consumers]]
+queue = "q-webhook-outbox-prod"
+max_batch_size = 10
+max_batch_timeout = 5
+
+[[env.prod.r2_buckets]]
+binding = "NOTIFICATION_ASSETS_BUCKET"
+bucket_name = "pagooz-notification-assets-prod"

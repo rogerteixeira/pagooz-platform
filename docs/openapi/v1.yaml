@@ -3,38 +3,236 @@ info:
   title: Pagooz API
   version: "1.0"
 servers:
-  - url: https://api.pagooz.com/v1
+  - url: https://api.pagooz.com
 
 paths:
-  /payment_intents:
+  /health:
+    get:
+      summary: Core Worker health check
+      responses:
+        "200":
+          description: Healthy
+
+  /ready:
+    get:
+      summary: Core Worker readiness check
+      responses:
+        "200":
+          description: Ready
+
+  /version:
+    get:
+      summary: Core Worker version metadata
+      responses:
+        "200":
+          description: Version info
+
+  /v1/payment_intents:
     post:
       summary: Create PaymentIntent
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+        - $ref: "#/components/parameters/ModeHeader"
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentIntentRequest"
       responses:
         "201":
-          description: Created
+          description: PaymentIntent created
+    get:
+      summary: List PaymentIntents
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+        - $ref: "#/components/parameters/ModeHeader"
+      responses:
+        "200":
+          description: PaymentIntents list
 
-  /quotes:
+  /v1/payment_intents/{id}:
+    get:
+      summary: Get PaymentIntent by id
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+        - $ref: "#/components/parameters/ModeHeader"
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: PaymentIntent
+        "404":
+          description: Not found
+
+  /v1/quotes:
     post:
       summary: Create Quote
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+        - $ref: "#/components/parameters/ModeHeader"
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuoteRequest"
       responses:
         "201":
-          description: Created
+          description: Quote created
 
-  /checkout_sessions:
+  /v1/quotes/{id}:
+    get:
+      summary: Get Quote by id
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+        - $ref: "#/components/parameters/ModeHeader"
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Quote
+
+  /v1/checkout_sessions:
+    get:
+      summary: List Checkout Sessions
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+        - $ref: "#/components/parameters/ModeHeader"
+      responses:
+        "200":
+          description: Checkout sessions list
     post:
       summary: Create Checkout Session
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+        - $ref: "#/components/parameters/ModeHeader"
+        - $ref: "#/components/parameters/IdempotencyHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckoutSessionRequest"
       responses:
         "201":
-          description: Created
+          description: Checkout session created
 
-  /fx_batches:
-    post:
-      summary: Create FX Batch
+  /v1/checkout_sessions/{id}:
+    get:
+      summary: Get Checkout Session by id
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantHeader"
+        - $ref: "#/components/parameters/ModeHeader"
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
-        "201":
-          description: Created
+        "200":
+          description: Checkout session
 
 components:
+  parameters:
+    TenantHeader:
+      in: header
+      name: X-Tenant-Id
+      required: true
+      schema:
+        type: string
+    ModeHeader:
+      in: header
+      name: X-Mode
+      required: true
+      schema:
+        type: string
+        enum: [sandbox, live]
+    IdempotencyHeader:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    CreatePaymentIntentRequest:
+      type: object
+      required: [legal_entity_id, amount, currency]
+      properties:
+        legal_entity_id:
+          type: string
+        amount:
+          type: integer
+        currency:
+          type: string
+        payer_country:
+          type: string
+        settlement_term:
+          type: string
+        fee_strategy:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+
+    CreateQuoteRequest:
+      type: object
+      required: [payment_intent_id, payment_method]
+      properties:
+        payment_intent_id:
+          type: string
+        payment_method:
+          type: string
+        installments:
+          type: integer
+
+    CreateCheckoutSessionRequest:
+      type: object
+      required: [payment_intent_id]
+      properties:
+        payment_intent_id:
+          type: string
+        quote_id:
+          type: string
+        locale:
+          type: string
+        expires_in_seconds:
+          type: integer
+
   securitySchemes:
     bearerAuth:
       type: http

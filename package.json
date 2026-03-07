@@ -1,0 +1,45 @@
+{
+  "name": "pagooz-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pagooz fintech infrastructure platform on Cloudflare Workers",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:core": "wrangler dev --config wrangler/core.toml",
+    "dev:ledger": "wrangler dev --config wrangler/ledger.toml",
+    "dev:notification": "wrangler dev --config wrangler/notification.toml",
+    "dev:core:dev": "wrangler dev --config wrangler/core.toml --env dev",
+    "dev:ledger:dev": "wrangler dev --config wrangler/ledger.toml --env dev",
+    "dev:notification:dev": "wrangler dev --config wrangler/notification.toml --env dev",
+    "run:local": "scripts/run_local_workers.sh",
+    "bootstrap:local": "scripts/bootstrap_environment.sh local",
+    "bootstrap:dev": "scripts/bootstrap_environment.sh dev",
+    "bootstrap:staging": "scripts/bootstrap_environment.sh staging",
+    "bootstrap:prod": "scripts/bootstrap_environment.sh prod",
+    "migrate:local": "wrangler d1 migrations apply DB --config wrangler/core.toml --local",
+    "migrate:dev": "wrangler d1 migrations apply DB --config wrangler/core.toml --env dev --remote",
+    "migrate:staging": "wrangler d1 migrations apply DB --config wrangler/core.toml --env staging --remote",
+    "migrate:prod": "wrangler d1 migrations apply DB --config wrangler/core.toml --env prod --remote",
+    "deploy:dev": "scripts/deploy_workers.sh dev",
+    "deploy:staging": "scripts/deploy_workers.sh staging",
+    "deploy:prod": "scripts/deploy_workers.sh prod",
+    "verify:repo": "scripts/verify_structure.sh",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260301.0",
+    "typescript": "^5.8.2",
+    "vitest": "^2.1.8",
+    "wrangler": "^4.8.0"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
+}
