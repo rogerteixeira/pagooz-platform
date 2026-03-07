@@ -1,6 +1,6 @@
 # Pagooz Platform
 
-Pagooz is a Cloudflare-based fintech infrastructure platform with a hybrid worker architecture:
+Pagooz is a fintech infrastructure platform with a hybrid worker architecture:
 
 - Core Worker (modular monolith)
 - Ledger Worker (append-only, isolated)
