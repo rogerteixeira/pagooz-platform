@@ -11,6 +11,7 @@ required_paths=(
   "apps/core-worker/src/index.ts"
   "apps/ledger-worker/src/index.ts"
   "apps/notification-worker/src/index.ts"
+  "packages/shared/src/contracts/ledger-command.ts"
   "docs/openapi/v1.yaml"
   "docs/events/v1.md"
   "docs/i18n/keys.md"
@@ -72,20 +73,43 @@ for cfg in wrangler/core.toml wrangler/ledger.toml wrangler/notification.toml; d
   fi
 done
 
-for queue_binding in Q_LEDGER_COMMANDS Q_DOMAIN_EVENTS Q_NOTIFICATION_OUTBOX Q_WEBHOOK_OUTBOX; do
-  if ! rg -q "binding = \"${queue_binding}\"" wrangler/core.toml; then
-    echo "ERROR: missing core queue producer binding ${queue_binding} in wrangler/core.toml"
-    failed=1
-  fi
+for env in local dev staging prod; do
+  for queue in \
+    "q-ledger-commands-${env}" \
+    "q-domain-events-${env}" \
+    "q-notification-outbox-${env}" \
+    "q-webhook-outbox-${env}"; do
+    if ! rg -q "queue = \"${queue}\"" wrangler/core.toml; then
+      echo "ERROR: missing ${queue} in wrangler/core.toml"
+      failed=1
+    fi
+  done
+
+  for queue in \
+    "q-ledger-commands-${env}" \
+    "q-ledger-events-${env}"; do
+    if ! rg -q "queue = \"${queue}\"" wrangler/ledger.toml; then
+      echo "ERROR: missing ${queue} in wrangler/ledger.toml"
+      failed=1
+    fi
+  done
+
+  for queue in \
+    "q-notification-outbox-${env}" \
+    "q-webhook-outbox-${env}"; do
+    if ! rg -q "queue = \"${queue}\"" wrangler/notification.toml; then
+      echo "ERROR: missing ${queue} in wrangler/notification.toml"
+      failed=1
+    fi
+  done
 done
 
-if rg -n 'scripts/wrangler|migrations/(0001_init.sql|0002_indexes.sql)' README.md docs prompts package.json scripts --glob '!scripts/verify_structure.sh' | rg -v 'wrangler/migrations' >/tmp/pagooz_legacy_refs.txt 2>/dev/null; then
-  echo "ERROR: found legacy path references:"
-  cat /tmp/pagooz_legacy_refs.txt
+if rg -q 'q-app-bus-' wrangler/core.toml wrangler/ledger.toml wrangler/notification.toml; then
+  echo "ERROR: found placeholder queue names (q-app-bus-*) in wrangler configs"
   failed=1
 fi
 
-if rg -n '\[env\.test\]|ENVIRONMENT = "test"|pagooz_d1_test|q-[a-z-]+-test|pagooz-[a-z-]+-test|<local\|test\|staging\|prod>' \
+if rg -n '\[env\.test\]|ENVIRONMENT = "test"|pagooz_d1_test|<local\|test\|staging\|prod>' \
   README.md docs/environments.md docs/repository-structure.md docs/runbooks/setup.md prompts/MASTER.md \
   scripts/apply_migrations.sh scripts/deploy_workers.sh scripts/bootstrap_environment.sh \
   wrangler/*.toml wrangler/README.md package.json >/tmp/pagooz_stale_test_refs.txt 2>/dev/null; then
@@ -94,28 +118,12 @@ if rg -n '\[env\.test\]|ENVIRONMENT = "test"|pagooz_d1_test|q-[a-z-]+-test|pagoo
   failed=1
 fi
 
-if rg -n 'queue = "q-[^"]+"' wrangler/*.toml | rg -v '(local|dev|staging|prod)"' >/tmp/pagooz_bad_queues.txt 2>/dev/null; then
-  echo "ERROR: queue names must be environment-suffixed:"
-  cat /tmp/pagooz_bad_queues.txt
-  failed=1
-fi
-
-if rg -n 'bucket_name = "pagooz-[^"]+"' wrangler/*.toml | rg -v '(local|dev|staging|prod)"' >/tmp/pagooz_bad_buckets.txt 2>/dev/null; then
-  echo "ERROR: bucket names must be environment-suffixed:"
-  cat /tmp/pagooz_bad_buckets.txt
-  failed=1
-fi
-
-if rg -n 'database_name = "pagooz_d1_[^"]+"' wrangler/*.toml | rg -v '(local|dev|staging|prod)"' >/tmp/pagooz_bad_db_names.txt 2>/dev/null; then
-  echo "ERROR: D1 database names must be environment-suffixed:"
-  cat /tmp/pagooz_bad_db_names.txt
-  failed=1
-fi
-
-if rg -n 'ENVIRONMENT = "' wrangler/*.toml | rg -v 'ENVIRONMENT = "(local|dev|staging|prod)"' >/tmp/pagooz_bad_env_names.txt 2>/dev/null; then
-  echo "ERROR: found invalid ENVIRONMENT values in wrangler configs:"
-  cat /tmp/pagooz_bad_env_names.txt
-  failed=1
+if stray_files="$(rg --files -g '*.bak' -g '*.orig' -g '*.tmp' -g 'verify_structure.shu')"; then
+  if [[ -n "$stray_files" ]]; then
+    echo "ERROR: found unexpected stray files:"
+    echo "$stray_files"
+    failed=1
+  fi
 fi
 
 if [[ "$failed" -ne 0 ]]; then

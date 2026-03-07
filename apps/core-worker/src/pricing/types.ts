@@ -138,7 +138,8 @@ export interface EconomicEngineResult {
     payer_currency: string;
     receiver_currency: string;
     markup_bps: number;
-    base_rate_ppm: number;
+    // Structural placeholder for future treasury integration. Not a live provider quote.
+    reference_rate_ppm: number;
     effective_rate_ppm: number;
   };
 }

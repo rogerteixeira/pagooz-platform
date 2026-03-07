@@ -1,66 +1,48 @@
-# Pagooz Security Baseline v1
+# Security Model
 
-## Authentication
+## Scope
+This document describes request-level and service-level security constraints used by the platform foundation.
 
-- JWT access token (15 min expiry)
-- Refresh token rotation
-- MFA required for dashboard users
-- API Keys for server-to-server
+## Authentication and Actor Resolution
+Core middleware resolves actor identity from:
+- API key headers (current scaffold)
+- JWT headers (placeholder scaffold)
 
-## Authorization
+Resolved actor context includes:
+- authentication method
+- tenant binding (when available)
+- roles
+- scopes
 
-- RBAC per tenant
-- API key scopes
-- Permission-based route protection
-- Superadmin access strictly controlled
+## Authorization and RBAC
+Route metadata defines:
+- `requires_auth`
+- `required_scopes`
+- `allow_operational_bypass`
 
-Current API scope model:
-- `payment_intents:write`
-- `payment_intents:read`
-- `quotes:write`
-- `quotes:read`
-- `checkout_sessions:write`
-- `checkout_sessions:read`
+Rules:
+- required scopes are enforced on protected routes
+- operational bypass is allowed only when both are true:
+  - `allow_operational_bypass == true`
+  - actor role contains `platform_admin`
+- generic `admin` role does not bypass scope checks
 
-Policy note:
-- `admin` role can bypass scope checks for operational access.
+## Tenant and Mode Isolation
+Business handlers require:
+- `tenant_id`
+- `mode` (`sandbox` or `live`)
 
-## Critical Operations (require audit log)
-
-- Pricing changes
-- Payout execution
-- FX batch execution
-- Split adjustments (before payment)
-- Webhook endpoint changes
+Repositories and services always receive tenant/mode explicitly.
 
 ## Idempotency
+Write endpoints require `idempotency-key` and reject missing values.
 
-All POST endpoints must require:
+## Queue and Event Separation
+- domain events and delivery commands use separate queues
+- ledger commands are validated before posting
+- invalid ledger commands are rejected without partial persistence
 
-Idempotency-Key header
-
-Idempotency is enforced via Durable Objects.
-
-## Webhook Security
-
-- HMAC-SHA256 signature
-- Timestamp header
-- Retry with exponential backoff
-- Delivery logs stored
-- Manual resend supported
-
-## PII Handling
-
-- Minimal storage
-- Mask sensitive fields
-- Redaction by scope:
-  - Superadmin: full technical
-  - Business: operational
-  - Consumer: polished minimal
-
-## Rate Limiting
-
-Enforced per:
-- Tenant
-- IP
-- Endpoint
+## Data and Secrets Hygiene
+- no credentials committed to source control
+- environment-specific secrets managed outside the repo
+- logs/events should not include sensitive credential material

@@ -5,8 +5,15 @@ import { generateId } from "../lib/ids";
 import { parseJsonObject } from "../lib/json";
 import type { EconomicEngineV1 } from "../pricing/economic-engine";
 import type { FeeAbsorption } from "../pricing/types";
-import type { PaymentIntentRepository, QuoteRepository } from "../repositories/types";
+import type {
+  LegalEntityRepository,
+  PaymentIntentRepository,
+  QuoteRepository,
+} from "../repositories/types";
+import type { CorridorContextResolver } from "./corridor-context-resolver";
 import type { DomainEventPublisher } from "./domain-event-publisher";
+import type { LedgerCommandPublisher } from "./ledger-command-publisher";
+import { buildQuoteLedgerCommand } from "./quote-ledger-mapping";
 import type { CreateQuotePayload } from "./types";
 
 function parseFeeAbsorption(value: unknown): FeeAbsorption {
@@ -15,22 +22,6 @@ function parseFeeAbsorption(value: unknown): FeeAbsorption {
   }
 
   return "payer";
-}
-
-function normalizeCountry(value: unknown, fallback: string): string {
-  if (typeof value === "string" && value.trim().length === 2) {
-    return value.trim().toUpperCase();
-  }
-
-  return fallback;
-}
-
-function normalizeCurrency(value: unknown, fallback: string): string {
-  if (typeof value === "string" && value.trim().length === 3) {
-    return value.trim().toUpperCase();
-  }
-
-  return fallback;
 }
 
 function asObject(value: Record<string, unknown> | null): JsonObject | null {
@@ -45,8 +36,11 @@ export class CoreQuoteService {
   constructor(
     private readonly quoteRepository: QuoteRepository,
     private readonly paymentIntentRepository: PaymentIntentRepository,
+    private readonly legalEntityRepository: LegalEntityRepository,
     private readonly domainEventPublisher: DomainEventPublisher,
+    private readonly ledgerCommandPublisher: LedgerCommandPublisher,
     private readonly economicEngine: EconomicEngineV1,
+    private readonly corridorResolver: CorridorContextResolver,
     private readonly now: () => number,
   ) {}
 
@@ -66,14 +60,22 @@ export class CoreQuoteService {
       feeStrategy?.absorption ?? feeStrategy?.absorbed_by,
     );
 
-    const payerCountry = normalizeCountry(
-      paymentIntent.payer_country ?? feeStrategy?.payer_country,
-      "US",
+    const legalEntity = await this.legalEntityRepository.getByIdForTenant(
+      tenant_id,
+      paymentIntent.legal_entity_id,
     );
-    const receiverCountry = normalizeCountry(feeStrategy?.receiver_country, payerCountry);
-    const payerCurrency = normalizeCurrency(feeStrategy?.payer_currency, paymentIntent.currency);
-    const receiverCurrency = paymentIntent.currency;
-    const corridorCode = `${payerCountry}->${receiverCountry}:${payerCurrency}/${receiverCurrency}`;
+
+    if (!legalEntity) {
+      throw notFound(
+        "legal_entity_not_found",
+        "Legal entity does not exist for the tenant.",
+      );
+    }
+
+    const corridor = this.corridorResolver.resolve({
+      payment_intent: paymentIntent,
+      legal_entity: legalEntity,
+    });
 
     const pricingResult = await this.economicEngine.quote({
       tenant_id,
@@ -82,13 +84,7 @@ export class CoreQuoteService {
       payment_method: payload.payment_method,
       installments: payload.installments ?? 1,
       settlement_term: paymentIntent.settlement_term,
-      corridor: {
-        payer_country: payerCountry,
-        receiver_country: receiverCountry,
-        payer_currency: payerCurrency,
-        receiver_currency: receiverCurrency,
-        corridor_code: corridorCode,
-      },
+      corridor,
       fee_strategy: {
         absorption: feeAbsorption,
         raw: asObject(feeStrategy),
@@ -119,6 +115,18 @@ export class CoreQuoteService {
       signature: pricingResult.signature,
       created_at: this.now(),
     });
+
+    await this.ledgerCommandPublisher.publishPostEntries(
+      buildQuoteLedgerCommand({
+        tenant_id,
+        mode,
+        legal_entity_id: paymentIntent.legal_entity_id,
+        quote_id: created.id,
+        payment_intent_id: paymentIntent.id,
+        currency: created.receiver_currency,
+        economics: pricingResult,
+      }),
+    );
 
     await this.domainEventPublisher.publishResourceCreated({
       event_type: "quote.created",

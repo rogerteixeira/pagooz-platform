@@ -1,5 +1,15 @@
+import type { RequestContext } from "../contracts/context";
 import type { Middleware } from "../http/middleware";
 import { forbidden } from "../http/errors";
+
+function hasOperationalBypass(context: RequestContext): boolean {
+  if (!context.route_meta.allow_operational_bypass) {
+    return false;
+  }
+
+  // Explicit operational role used only when route metadata allows controlled bypass.
+  return context.actor.roles.includes("platform_admin");
+}
 
 export const rbacMiddleware: Middleware = async (context, next) => {
   const rawRoles = context.request.headers.get("x-roles");
@@ -35,7 +45,7 @@ export const rbacMiddleware: Middleware = async (context, next) => {
   }
 
   const requiredScopes = context.route_meta.required_scopes;
-  if (requiredScopes.length > 0 && !context.actor.roles.includes("admin")) {
+  if (requiredScopes.length > 0 && !hasOperationalBypass(context)) {
     const granted = new Set(context.actor.scopes);
     const missing = requiredScopes.filter((scope) => !granted.has(scope));
 

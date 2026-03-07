@@ -1,34 +1,47 @@
-# Repository Structure (Source of Truth)
+# Repository Structure
 
-## Top-level
+## Top-level layout
+- `apps/`: worker applications (`core-worker`, `ledger-worker`, `notification-worker`).
+- `packages/`: shared types/contracts used across workers.
+- `wrangler/`: worker configuration per app and shared migration files.
+- `scripts/`: bootstrap, migration, deployment, and verification automation.
+- `docs/`: engineering documentation.
 
-- `apps/`: Cloudflare Workers
-- `packages/`: shared contracts and utilities
-- `docs/`: platform source-of-truth docs
-- `prompts/`: Codex prompts
-- `scripts/`: operational scripts
-- `wrangler/`: Cloudflare config + D1 migrations
+## App responsibilities
+### `apps/core-worker/`
+- HTTP routing and middleware pipeline
+- validation and error handling
+- tenant/mode/auth/scope enforcement
+- payment_intent, quote, checkout_session modules
+- economic engine integration
+- domain event publishing and ledger command publishing
 
-## Worker ownership
+### `apps/ledger-worker/`
+- consumes `ledger.post_entries` commands
+- validates journal shape and balance rules
+- enforces idempotency by journal identity
+- auto-provisions accounts
+- persists `ledger_journals` and `ledger_entries`
+- updates `account_balances`
+- emits `ledger.journal_posted` / `ledger.journal_rejected`
 
-- `apps/core-worker`: API orchestration + queue producers
-- `apps/ledger-worker`: append-only ledger command consumer
-- `apps/notification-worker`: notification + webhook outbox consumers
+### `apps/notification-worker/`
+- consumes notification/webhook outbox queues
+- handles delivery-oriented workflows
 
-## Environment model
+## Shared contracts
+`packages/shared/src/contracts/` contains cross-worker contracts:
+- `event-envelope.ts`
+- `ledger-command.ts`
 
-- infra environments: `local`, `dev`, `staging`, `prod`
-- customer modes: `sandbox`, `live`
+These contracts define queue payload compatibility between producers and consumers.
 
-## Contracts and specs
+## Infrastructure configuration
+`wrangler/*.toml` is the source of truth for:
+- worker entrypoints
+- queue bindings (producer/consumer)
+- D1 bindings and migration directory
+- environment-specific names (`local`, `dev`, `staging`, `prod`)
 
-- OpenAPI: `docs/openapi/v1.yaml`
-- Event contracts: `docs/events/v1.md`
-- i18n keys: `docs/i18n/keys.md`
-
-## Migrations
-
-- `wrangler/migrations/0001_init.sql`
-- `wrangler/migrations/0002_indexes.sql`
-
-Migrations are applied via the `DB` binding in `wrangler/core.toml`.
+## Documentation intent
+Engineering docs in this repository are implementation-oriented and should remain aligned with actual code and configuration.

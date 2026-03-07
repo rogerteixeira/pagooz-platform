@@ -1,35 +1,21 @@
-# i18n Keys v1
+# i18n Key Strategy
 
-## Timeline Keys
+## Goals
+- stable keys across releases
+- deterministic fallback behavior
+- safe incremental locale rollout
 
-- timeline.payment_created.title
-- timeline.payment_created.message
-- timeline.quote_ready.title
-- timeline.quote_ready.message
-- timeline.payment_succeeded.title
-- timeline.payment_succeeded.message
-- timeline.payment_failed.title
-- timeline.payment_failed.message
-- timeline.payout_scheduled.title
-- timeline.payout_scheduled.message
-- timeline.payout_paid.title
-- timeline.payout_paid.message
+## Key Design
+- Keys are namespaced by domain, resource, and scenario.
+- Keys are immutable identifiers; message text can evolve.
+- API and webhook surfaces should return keys plus contextual data when applicable.
 
-## Notification Templates
+## Fallback Rules
+1. explicit locale requested by client/user
+2. tenant default locale
+3. platform default locale (`en`)
 
-Consumer:
-- email.consumer.payment_succeeded.subject
-- email.consumer.payment_succeeded.body
-- email.consumer.payment_failed.subject
-- email.consumer.payment_failed.body
-
-Business:
-- email.business.payment_succeeded.subject
-- email.business.payment_succeeded.body
-
-## Error Keys
-
-- err.invalid_request
-- err.expired_quote
-- err.provider_unavailable
-- err.payment_declined
+## Versioning
+- New keys are additive.
+- Deprecated keys remain until all active clients are migrated.
+- Breaking key removals require coordinated release notes.

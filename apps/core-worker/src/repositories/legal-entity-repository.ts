@@ -12,7 +12,7 @@ export class D1LegalEntityRepository implements LegalEntityRepository {
   ): Promise<LegalEntityRecord | null> {
     const row = await this.db
       .prepare(
-        `SELECT id, tenant_id, status
+        `SELECT id, tenant_id, country, status
            FROM legal_entities
           WHERE id = ? AND tenant_id = ?
           LIMIT 1`

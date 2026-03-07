@@ -4,6 +4,7 @@ import {
   QueueDomainEventSink,
   SinkBackedDomainEventPublisher,
 } from "../services/domain-event-publisher";
+import { CapturingLedgerCommandPublisher } from "../services/ledger-command-publisher";
 import {
   CapturingDomainEventPublisher,
   createTestDependencies,
@@ -265,6 +266,56 @@ describe("core worker foundation", () => {
     );
 
     expect(getQuoteResponse.status).toBe(200);
+  });
+
+  it("publishes ledger.post_entries command when quote is created", async () => {
+    const ledgerPublisher = new CapturingLedgerCommandPublisher();
+    const worker = createCoreWorker({
+      dependencies_factory: () => createTestDependencies(undefined, ledgerPublisher),
+    });
+
+    const paymentIntentResponse = await worker.fetch(
+      new Request("http://localhost/v1/payment_intents", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          legal_entity_id: "le_2",
+          amount: 5_000,
+          currency: "USD",
+          payer_country: "US",
+        }),
+      }),
+      createTestEnv(),
+    );
+
+    const paymentIntent = await json(paymentIntentResponse);
+
+    const quoteResponse = await worker.fetch(
+      new Request("http://localhost/v1/quotes", {
+        method: "POST",
+        headers: authHeaders({ "idempotency-key": "idem_quote_ledger_emit" }),
+        body: JSON.stringify({
+          payment_intent_id: paymentIntent.id,
+          payment_method: "card",
+          installments: 2,
+        }),
+      }),
+      createTestEnv(),
+    );
+
+    expect(quoteResponse.status).toBe(201);
+    const quote = await json(quoteResponse);
+
+    expect(ledgerPublisher.commands).toHaveLength(1);
+    const command = ledgerPublisher.commands[0];
+    expect(command.command_type).toBe("ledger.post_entries");
+    expect(command.reference_type).toBe("quote");
+    expect(command.reference_id).toBe(quote.id);
+    expect(command.legal_entity_id).toBe("le_2");
+    expect(command.entries.length).toBeGreaterThanOrEqual(2);
+    const totalDebit = command.entries.reduce((sum, entry) => sum + entry.debit, 0);
+    const totalCredit = command.entries.reduce((sum, entry) => sum + entry.credit, 0);
+    expect(totalDebit).toBe(totalCredit);
   });
 
   it("creates checkout_sessions linked to payment_intent and quote", async () => {
@@ -557,7 +608,7 @@ describe("core worker foundation", () => {
     expect((await json(response)).error.code).toBe("insufficient_scope");
   });
 
-  it("allows admin role to bypass scope checks", async () => {
+  it("allows platform_admin role to bypass scope checks", async () => {
     const worker = createCoreWorker({
       dependencies_factory: () => createTestDependencies(),
     });
@@ -567,8 +618,8 @@ describe("core worker foundation", () => {
         method: "POST",
         headers: authHeaders({
           "x-scopes": "",
-          "x-roles": "admin",
-          "idempotency-key": "idem_admin_create_pi",
+          "x-roles": "platform_admin",
+          "idempotency-key": "idem_platform_admin_create_pi",
         }),
         body: JSON.stringify({
           legal_entity_id: "le_1",
@@ -580,6 +631,32 @@ describe("core worker foundation", () => {
     );
 
     expect(createResponse.status).toBe(201);
+  });
+
+  it("does not allow generic admin role as operational bypass", async () => {
+    const worker = createCoreWorker({
+      dependencies_factory: () => createTestDependencies(),
+    });
+
+    const createResponse = await worker.fetch(
+      new Request("http://localhost/v1/payment_intents", {
+        method: "POST",
+        headers: authHeaders({
+          "x-scopes": "",
+          "x-roles": "admin",
+          "idempotency-key": "idem_generic_admin_create_pi",
+        }),
+        body: JSON.stringify({
+          legal_entity_id: "le_1",
+          amount: 1_700,
+          currency: "USD",
+        }),
+      }),
+      createTestEnv(),
+    );
+
+    expect(createResponse.status).toBe(403);
+    expect((await json(createResponse)).error.code).toBe("insufficient_scope");
   });
 
   it("applies payer-absorbed fee strategy to quote totals", async () => {
@@ -595,6 +672,7 @@ describe("core worker foundation", () => {
     expect(quote.payer_total).toBeGreaterThan(quote.receiver_net);
     expect(quote.receiver_net).toBe(paymentIntent.amount);
     expect(quote.breakdown.fee_breakdown.service_fee.amount).toBeGreaterThan(0);
+    expect(quote.breakdown.tax_breakdown.items[0].code).toBe("generic_tax");
   });
 
   it("applies merchant-absorbed fee strategy to quote totals", async () => {
@@ -670,6 +748,40 @@ describe("core worker foundation", () => {
     expect(quote.breakdown.applied_rule_summary.fallbacks).toContain(
       "settlement_rule_default",
     );
+  });
+
+  it("resolves receiver_country from legal entity profile, not fee_strategy payload", async () => {
+    const worker = createCoreWorker({
+      dependencies_factory: () => createTestDependencies(),
+    });
+
+    const paymentIntent = await createPaymentIntent(worker, {
+      legal_entity_id: "le_2",
+      payer_country: "US",
+      fee_strategy: {
+        absorption: "payer",
+        receiver_country: "MX",
+      },
+    });
+
+    const quote = await createQuote(worker, paymentIntent.id, {
+      payment_method: "card",
+    });
+
+    // le_2 country is BR in the test repository seed.
+    expect(quote.fx.corridor_code).toContain("US->BR");
+  });
+
+  it("returns explicit FX reference-rate placeholder semantics", async () => {
+    const worker = createCoreWorker({
+      dependencies_factory: () => createTestDependencies(),
+    });
+
+    const paymentIntent = await createPaymentIntent(worker);
+    const quote = await createQuote(worker, paymentIntent.id);
+
+    expect(quote.fx.reference_rate_ppm).toBe(1_000_000);
+    expect(quote.fx).not.toHaveProperty("base_rate_ppm");
   });
 
   it("changes quote signature when economics change", async () => {

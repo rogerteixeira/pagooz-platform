@@ -1,25 +1,20 @@
-# Wrangler Configs
+# Wrangler Configuration
 
-This folder is the source of truth for Cloudflare configuration.
+This directory contains the Cloudflare Worker configuration used by Pagooz environments.
 
 ## Files
+- `core.toml`: Core Worker runtime, bindings, and environment overrides
+- `ledger.toml`: Ledger Worker runtime, queue consumer/producer bindings
+- `notification.toml`: Notification Worker runtime and delivery queue consumers
+- `migrations/`: canonical D1 migrations shared across workers
 
-- `core.toml`: Core Worker (HTTP API + queue producers, including internal domain events stream)
-- `ledger.toml`: Ledger Worker (queue consumer + ledger events producer)
-- `notification.toml`: Notification Worker (queue consumers)
-- `migrations/`: Shared D1 migrations (single schema for all workers)
+## Conventions
+- Environment model is fixed: `local`, `dev`, `staging`, `prod`.
+- All queue names are environment-suffixed.
+- D1 migrations are sourced from `wrangler/migrations` via `migrations_dir = "./migrations"`.
+- Worker entrypoints are referenced relative to each TOML file.
 
-## Environment Model
-
-Each config includes:
-
-- top-level = `local`
-- `[env.dev]`
-- `[env.staging]`
-- `[env.prod]`
-
-## Important
-
-- Replace `database_id` placeholder UUIDs with real D1 IDs before remote deploy.
-- Queue and R2 names are environment-suffixed to avoid cross-environment data leakage.
-- Keep `migrations_dir = "./migrations"` in every `d1_databases` block.
+## Workflow
+- Local development uses `wrangler dev --config wrangler/<worker>.toml`.
+- Migrations are applied through `scripts/apply_migrations.sh`.
+- Deployments are executed by `scripts/deploy_workers.sh <env>`.

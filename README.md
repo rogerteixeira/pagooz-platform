@@ -1,114 +1,84 @@
 # Pagooz Platform
 
+<<<<<<< HEAD
 Pagooz is a fintech infrastructure platform with a hybrid worker architecture:
+=======
+## 1. Overview
+Pagooz is a cross-border payments infrastructure platform built on Cloudflare Workers.
+>>>>>>> 620ce06 (fix: restore worker dependency lifecycle and strict ledger typing)
 
-- Core Worker (modular monolith)
-- Ledger Worker (append-only, isolated)
-- Notification Worker (email + webhooks via queues)
+This repository contains the execution foundation and backend modules for:
+- API orchestration
+- quote economics
+- ledger posting commands and accounting persistence
+- notification/webhook processing
 
-The platform is multi-tenant, multi-legal-entity, event-driven, and enforces strict `sandbox`/`live` customer mode isolation.
+## 2. Architecture Overview
+Pagooz uses a hybrid worker architecture:
 
-## Repository Layout
+- `Core Worker`: API surface, request validation, tenant/mode enforcement, pricing, quote creation, and command publishing.
+- `Ledger Worker`: consumes `ledger.post_entries`, validates balanced journals, enforces idempotency, persists journals/entries, updates balances, emits ledger events.
+- `Notification Worker`: consumes delivery-focused commands for notifications and webhooks.
 
-- `apps/`: worker code
-- `packages/`: shared contracts
-- `docs/`: source-of-truth platform docs
-- `prompts/`: Codex prompt source
-- `scripts/`: operational tooling
-- `wrangler/`: Worker configs + D1 migrations
+Shared platform primitives:
+- Cloudflare D1 for operational state
+- Cloudflare Queues for asynchronous commands/events
+- R2 for artifacts and notification assets
 
-Canonical structure: `docs/repository-structure.md`
-
-## Canonical Environment Model
-
+## 3. Environment Model
 Infrastructure environments:
-
 - `local`
 - `dev`
 - `staging`
 - `prod`
 
-Customer operation modes:
-
+Business modes (independent from environment):
 - `sandbox`
 - `live`
 
-## Prerequisites
+Every business-facing query and write path is scoped by `tenant_id` and `mode`.
 
+## 4. Local Development
+### Prerequisites
 - Node.js 20+
 - npm 10+
-- Cloudflare account access
-- Wrangler auth (`npx wrangler login`)
+- Wrangler CLI
 
-## Quick Start
-
+### Setup
 1. `npm install`
 2. `npm run verify:repo`
-3. Replace placeholder D1 `database_id` values in `wrangler/*.toml`
-4. `npm run bootstrap:local`
-5. `npm run run:local`
+3. `scripts/bootstrap_environment.sh local`
 
-## Environment Commands
+### Run workers
+- `npm run dev:core`
+- `npm run dev:ledger`
+- `npm run dev:notification`
+- or `npm run run:local`
 
-Local:
+## 5. Repository Layout
+- `apps/core-worker/` Core API, middleware, pricing engine, repositories, services
+- `apps/ledger-worker/` ledger command consumer and accounting persistence
+- `apps/notification-worker/` notification and webhook delivery processing
+- `packages/shared/` shared contracts (`event-envelope`, `ledger-command`)
+- `wrangler/` environment-specific worker configuration and migrations
+- `scripts/` bootstrap, migration, deploy, verification, roadmap helpers
+- `docs/` engineering documentation
 
-- bootstrap: `npm run bootstrap:local`
-- migrate: `npm run migrate:local`
-- run all workers: `npm run run:local`
+## 6. Testing
+- `npm run verify:repo` validates repository structure and config consistency.
+- `npm test` runs Vitest suites (Core and Ledger worker foundations).
+- `npm exec tsc --noEmit` performs TypeScript type checking.
 
-Dev:
+## 7. Deployment Overview
+Standard sequence per environment (`dev`, `staging`, `prod`):
+1. `scripts/bootstrap_environment.sh <env>`
+2. `scripts/deploy_workers.sh <env>`
 
-- bootstrap: `npm run bootstrap:dev`
-- migrate: `npm run migrate:dev`
-- deploy: `npm run deploy:dev`
+`bootstrap_environment.sh` runs structure checks and D1 migrations before deployment.
 
-Staging:
-
-- bootstrap: `npm run bootstrap:staging`
-- migrate: `npm run migrate:staging`
-- deploy: `npm run deploy:staging`
-
-Prod:
-
-- bootstrap: `npm run bootstrap:prod`
-- migrate: `npm run migrate:prod`
-- deploy: `npm run deploy:prod`
-
-## Migrations
-
-Canonical migration location:
-
-- `wrangler/migrations/0001_init.sql`
-- `wrangler/migrations/0002_indexes.sql`
-
-Apply migrations via:
-
-- `scripts/apply_migrations.sh <local|dev|staging|prod>`
-
-## Notes
-
-- Queue names and bucket names are environment-suffixed.
-- Core domain events are published to `q-domain-events-{env}` and kept separate from delivery command queues.
-- Worker health endpoints: `/health`, `/ready`, `/version`.
-- `workers_dev = true` is used for bootstrap simplicity.
-
-## Core API Foundation (Phase 2)
-
-Implemented endpoints in Core Worker:
-
-- `POST /v1/payment_intents`
-- `GET /v1/payment_intents`
-- `GET /v1/payment_intents/:id`
-- `POST /v1/quotes`
-- `GET /v1/quotes/:id`
-- `POST /v1/checkout_sessions`
-- `GET /v1/checkout_sessions`
-- `GET /v1/checkout_sessions/:id`
-
-Middleware foundation includes request tracing, tenant/mode enforcement, auth scaffold, RBAC scaffold, idempotency scaffold, locale resolution, and audit hook scaffold.
-
-Quote creation now uses Economic Engine v1 with deterministic fee/tax breakdowns and quote signatures.
-
-Test command:
-
-- `npm test`
+## 8. Security Practices
+- Tenant + mode isolation is mandatory on business routes.
+- Required scopes are enforced via route metadata.
+- Operational bypass is explicit and constrained (`platform_admin` + route flag).
+- Idempotency keys are required for write endpoints.
+- No secrets are stored in the repository; use environment-specific secret management.

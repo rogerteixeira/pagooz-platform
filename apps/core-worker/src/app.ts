@@ -26,6 +26,7 @@ const DEFAULT_ROUTE_META = {
   requires_auth: false,
   requires_idempotency: false,
   required_scopes: [],
+  allow_operational_bypass: false,
 } as const;
 
 const pipeline = [
@@ -45,11 +46,20 @@ export function createCoreWorker(options?: {
   ) => ServiceContainerDependencies;
 }) {
   const router = createRouter(buildRoutes());
+  let cachedDependencies: ServiceContainerDependencies | null = null;
+
+  function resolveDependencies(env: CoreEnv): ServiceContainerDependencies {
+    if (!cachedDependencies) {
+      cachedDependencies =
+        options?.dependencies_factory?.(env) ?? createRuntimeDependencies(env);
+    }
+
+    return cachedDependencies;
+  }
 
   return {
     async fetch(request: Request, env: CoreEnv): Promise<Response> {
-      const dependencies =
-        options?.dependencies_factory?.(env) ?? createRuntimeDependencies(env);
+      const dependencies = resolveDependencies(env);
 
       const services = createServices(env, dependencies);
 

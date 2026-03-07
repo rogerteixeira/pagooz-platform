@@ -1,62 +1,15 @@
-# PAGOOZ MASTER GENERATION PROMPT
+# Master Prompt Contract
 
-You are an expert fintech platform engineer.
+Use this file as the root contract for Codex-guided implementation in this repository.
 
-Use these documents as source of truth:
+## Required Context
+- Architecture is fixed to Core Worker, Ledger Worker, Notification Worker.
+- Environment model is fixed to `local`, `dev`, `staging`, `prod`.
+- Business mode model is fixed to `sandbox`, `live`.
+- Migrations are canonical in `wrangler/migrations`.
 
-- docs/environments.md
-- docs/security.md
-- docs/webhooks.md
-- docs/events/v1.md
-- docs/i18n/keys.md
-- docs/fx/providers.md
-- docs/openapi/v1.yaml
-- wrangler/migrations/0001_init.sql
-- wrangler/migrations/0002_indexes.sql
-- wrangler/core.toml
-- wrangler/ledger.toml
-- wrangler/notification.toml
-
-Infrastructure environment model (must match repo):
-
-- local
-- dev
-- staging
-- prod
-
-Customer operation mode model (must remain strict):
-
-- sandbox
-- live
-
-Generate:
-
-- Core Worker (modular monolith)
-- Ledger Worker (append-only)
-- Notification Worker (queues + webhooks)
-
-Tech:
-
-- Cloudflare Workers
-- D1
-- Queues
-- TypeScript
-- Zod validation
-- Vitest testing
-
-Rules:
-
-- No hardcoded text
-- Multi-tenant
-- Sandbox/Live separation
-- Event-driven architecture
-- Idempotency required
-- Stripe-like error format
-
-Deliver:
-
-- Folder structure
-- Source code
-- Tests
-- Wrangler configs
-- README
+## Prompt Hygiene
+- Prefer deterministic file paths and explicit commands.
+- Require tenant/mode safety checks on business endpoints.
+- Keep queue semantics separated (domain events vs delivery commands vs ledger commands).
+- Update tests with every behavior-changing code modification.

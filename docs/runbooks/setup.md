@@ -1,48 +1,54 @@
-# Developer Setup Runbook
+# Setup Runbook
 
 ## Prerequisites
-
 - Node.js 20+
 - npm 10+
-- Cloudflare account + API token
+- Wrangler CLI authenticated for the target account
 
-## Setup
-
+## Install
 1. `npm install`
-2. `npx wrangler login`
-3. Fill real D1 `database_id` values in:
-   - `wrangler/core.toml`
-   - `wrangler/ledger.toml`
-   - `wrangler/notification.toml`
+2. `npm run verify:repo`
 
-## Validate structure
+## Local bootstrap
+- `scripts/bootstrap_environment.sh local`
 
-- `npm run verify:repo`
+This performs:
+- repository structure/config checks
+- local D1 migration apply via `wrangler/core.toml`
 
-## Bootstrap by environment
+## Environment bootstrap
+For `dev`, `staging`, `prod`:
+- `scripts/bootstrap_environment.sh <env>`
 
-- local: `npm run bootstrap:local`
-- dev: `npm run bootstrap:dev`
-- staging: `npm run bootstrap:staging`
-- prod: `npm run bootstrap:prod`
+Optional full bootstrap + deploy:
+- `scripts/bootstrap_environment.sh <env> deploy`
 
-## Apply migrations
+## Migrations
+Direct migration commands:
+- `scripts/apply_migrations.sh local`
+- `scripts/apply_migrations.sh dev`
+- `scripts/apply_migrations.sh staging`
+- `scripts/apply_migrations.sh prod`
 
-- local: `npm run migrate:local`
-- dev: `npm run migrate:dev`
-- staging: `npm run migrate:staging`
-- prod: `npm run migrate:prod`
+## Running workers locally
+- `npm run dev:core`
+- `npm run dev:ledger`
+- `npm run dev:notification`
+- or `npm run run:local`
 
-## Run local workers
+## Deployment
+- `scripts/deploy_workers.sh dev`
+- `scripts/deploy_workers.sh staging`
+- `scripts/deploy_workers.sh prod`
 
-- one command: `npm run run:local`
-- optional separate processes:
-  - `npm run dev:core`
-  - `npm run dev:ledger`
-  - `npm run dev:notification`
+Optional single worker deploy:
+- `scripts/deploy_workers.sh dev core`
+- `scripts/deploy_workers.sh staging ledger`
+- `scripts/deploy_workers.sh prod notification`
 
-## Deploy
-
-- dev: `npm run deploy:dev`
-- staging: `npm run deploy:staging`
-- prod: `npm run deploy:prod`
+## Validation checklist
+Before deploy:
+1. `npm run verify:repo`
+2. `npm exec tsc --noEmit`
+3. `npm test`
+4. apply migrations for target env

@@ -18,6 +18,7 @@ export interface CheckoutSessionListOptions {
 export interface LegalEntityRecord {
   id: string;
   tenant_id: string;
+  country: string;
   status: "active" | "suspended";
 }
 

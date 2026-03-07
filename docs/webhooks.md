@@ -1,43 +1,22 @@
-# Pagooz Webhooks v1
+# Webhook Delivery Model
 
-## Endpoint Configuration
+## Purpose
+Webhooks provide external delivery of platform events to third-party systems.
 
-Each webhook endpoint includes:
+## Delivery Principles
+- signed payload validation
+- timestamp validation to reduce replay risk
+- deterministic retry behavior
+- idempotent consumer expectations
+- observability for delivery status and failures
 
-- URL
-- Mode (sandbox | live)
-- Subscribed event types
-- Signing secret
-- Status (enabled | disabled)
+## Queue Separation
+Webhook delivery commands are consumed from:
+- `q-webhook-outbox-{env}`
 
-## Delivery Format
+This queue is delivery-specific and separate from domain event transport.
 
-POST JSON:
-
-{
-  "id": "evt_123",
-  "type": "payment.succeeded",
-  "created": 1760000000,
-  "mode": "sandbox",
-  "data": { "object": {} }
-}
-
-## Headers
-
-Pagooz-Timestamp: unix_timestamp
-Pagooz-Signature: hmac_sha256(secret, timestamp + "." + raw_body)
-
-## Retry Policy
-
-- Max attempts: 18
-- Backoff: exponential + jitter
-- Timeout: 8 seconds
-- Failures go to DLQ
-- Manual resend allowed
-
-## Visibility
-
-Webhook payloads NEVER include:
-- Superadmin-only fields
-- Internal FX route details
-- Provider secrets
+## Operational Expectations
+- Delivery workers must retry transient failures.
+- Permanent validation failures should be classified and surfaced for operations.
+- Delivery metadata must preserve tenant/mode context for diagnostics.

@@ -1,29 +1,32 @@
-interface LedgerCommand {
-  event_id?: string;
-  event_type?: string;
-  tenant_id?: string;
-  mode?: "sandbox" | "live";
-  data?: Record<string, unknown>;
-}
-
-interface Env {
-  DB: D1Database;
-  Q_LEDGER_EVENTS: Queue;
-  ENVIRONMENT: "local" | "dev" | "staging" | "prod";
-  APP_NAME: string;
-  APP_VERSION?: string;
-  GIT_SHA?: string;
-}
+import type { LedgerEnv } from "./contracts/environment";
+import {
+  LedgerCommandValidationError,
+  LedgerPostingService,
+} from "./services/ledger-posting-service";
+import {
+  QueueLedgerEventPublisher,
+  type LedgerEventPublisher,
+} from "./services/ledger-event-publisher";
+import {
+  D1LedgerPostingStore,
+  type LedgerPostingStore,
+} from "./stores/d1-ledger-posting-store";
 
 interface WorkerStatus {
   ok: boolean;
   status: "healthy" | "ready";
   worker: "ledger";
-  environment: Env["ENVIRONMENT"];
+  environment: LedgerEnv["ENVIRONMENT"];
   app: string;
   timestamp: string;
   version: string;
   git_sha: string;
+}
+
+interface LedgerRuntimeDependencies {
+  store: LedgerPostingStore;
+  event_publisher: LedgerEventPublisher;
+  now: () => number;
 }
 
 function json(data: unknown, status = 200): Response {
@@ -35,7 +38,7 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-function statusPayload(env: Env, status: WorkerStatus["status"]): WorkerStatus {
+function statusPayload(env: LedgerEnv, status: WorkerStatus["status"]): WorkerStatus {
   return {
     ok: true,
     status,
@@ -48,7 +51,7 @@ function statusPayload(env: Env, status: WorkerStatus["status"]): WorkerStatus {
   };
 }
 
-function versionPayload(env: Env) {
+function versionPayload(env: LedgerEnv) {
   return {
     worker: "ledger",
     environment: env.ENVIRONMENT,
@@ -60,53 +63,89 @@ function versionPayload(env: Env) {
   };
 }
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const { pathname } = new URL(request.url);
+function nowUnixSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
 
-    if (pathname === "/health") {
-      return json(statusPayload(env, "healthy"));
-    }
+function createRuntimeDependencies(env: LedgerEnv): LedgerRuntimeDependencies {
+  return {
+    store: new D1LedgerPostingStore(env.DB),
+    event_publisher: new QueueLedgerEventPublisher(env.Q_LEDGER_EVENTS),
+    now: nowUnixSeconds,
+  };
+}
 
-    if (pathname === "/ready") {
-      return json(statusPayload(env, "ready"));
-    }
+export function createLedgerWorker(options?: {
+  dependencies_factory?: (env: LedgerEnv) => LedgerRuntimeDependencies;
+}) {
+  return {
+    async fetch(request: Request, env: LedgerEnv): Promise<Response> {
+      const { pathname } = new URL(request.url);
 
-    if (pathname === "/version") {
-      return json(versionPayload(env));
-    }
-
-    return json(
-      {
-        error: {
-          type: "invalid_request_error",
-          code: "route_not_found",
-          message: "Route is not implemented yet.",
-        },
-      },
-      404,
-    );
-  },
-
-  async queue(batch: MessageBatch<LedgerCommand>, env: Env): Promise<void> {
-    for (const message of batch.messages) {
-      const body = message.body;
-
-      if (!body || typeof body !== "object") {
-        message.retry();
-        continue;
+      if (pathname === "/health") {
+        return json(statusPayload(env, "healthy"));
       }
 
-      await env.Q_LEDGER_EVENTS.send({
-        event_id: body.event_id ?? crypto.randomUUID(),
-        event_type: body.event_type ?? "ledger.journal_posted",
-        tenant_id: body.tenant_id,
-        mode: body.mode,
-        resources: {},
-        data: body.data ?? {},
-      });
+      if (pathname === "/ready") {
+        return json(statusPayload(env, "ready"));
+      }
 
-      message.ack();
-    }
-  },
-};
+      if (pathname === "/version") {
+        return json(versionPayload(env));
+      }
+
+      return json(
+        {
+          error: {
+            type: "invalid_request_error",
+            code: "route_not_found",
+            message: "Route not found.",
+          },
+        },
+        404,
+      );
+    },
+
+    async queue(batch: MessageBatch<unknown>, env: LedgerEnv): Promise<void> {
+      const dependencies =
+        options?.dependencies_factory?.(env) ?? createRuntimeDependencies(env);
+      const postingService = new LedgerPostingService(
+        dependencies.store,
+        dependencies.event_publisher,
+        dependencies.now,
+      );
+
+      for (const message of batch.messages) {
+        try {
+          await postingService.process(message.body);
+          message.ack();
+        } catch (error) {
+          if (error instanceof LedgerCommandValidationError) {
+            const body = message.body as Record<string, unknown> | null;
+            const tenant = body && typeof body.tenant_id === "string" ? body.tenant_id : null;
+            const mode = body && (body.mode === "sandbox" || body.mode === "live")
+              ? body.mode
+              : null;
+            const journal = body && typeof body.journal_id === "string" ? body.journal_id : null;
+            const command = body && typeof body.command_id === "string" ? body.command_id : null;
+
+            await dependencies.event_publisher.publishJournalRejected({
+              tenant_id: tenant,
+              mode,
+              journal_id: journal,
+              command_id: command,
+              code: error.code,
+              message: error.message,
+            });
+            message.ack();
+            continue;
+          }
+
+          message.retry();
+        }
+      }
+    },
+  };
+}
+
+export default createLedgerWorker();

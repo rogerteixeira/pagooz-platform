@@ -212,7 +212,8 @@ export class EconomicEngineV1 {
         payer_currency: input.corridor.payer_currency,
         receiver_currency: input.corridor.receiver_currency,
         markup_bps: fxRule.markup_bps,
-        base_rate_ppm: 1_000_000,
+        // Reference-only placeholder shape until treasury FX quoting is integrated.
+        reference_rate_ppm: 1_000_000,
         effective_rate_ppm: 1_000_000 + fxRule.markup_bps * 100,
       },
     };

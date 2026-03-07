@@ -97,8 +97,8 @@ const BASE_RULE_SET: Omit<EconomicRuleSet, "quote_ttl_seconds" | "default_fx_mar
   },
   tax_rules: [
     {
-      code: "platform_tax",
-      label: "Platform tax",
+      code: "generic_tax",
+      label: "Generic tax placeholder",
       percent_bps: 500,
       applies_to: ["service_fee", "mdr", "settlement_fee", "fx_markup"],
       condition: "always",

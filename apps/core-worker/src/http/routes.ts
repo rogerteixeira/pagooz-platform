@@ -17,6 +17,7 @@ const SYSTEM_META = {
   requires_auth: false,
   requires_idempotency: false,
   required_scopes: [],
+  allow_operational_bypass: false,
 } as const;
 
 const AUTH_READ_META = {
@@ -24,6 +25,7 @@ const AUTH_READ_META = {
   requires_auth: true,
   requires_idempotency: false,
   required_scopes: [] as const,
+  allow_operational_bypass: true,
 } as const;
 
 const AUTH_WRITE_META = {
@@ -31,6 +33,7 @@ const AUTH_WRITE_META = {
   requires_auth: true,
   requires_idempotency: true,
   required_scopes: [] as const,
+  allow_operational_bypass: true,
 } as const;
 
 const SCOPE_PAYMENT_INTENTS_WRITE = ["payment_intents:write"] as const;

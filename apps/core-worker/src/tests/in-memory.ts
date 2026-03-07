@@ -20,6 +20,10 @@ import {
   NoopDomainEventPublisher,
   type DomainEventPublisher,
 } from "../services/domain-event-publisher";
+import {
+  NoopLedgerCommandPublisher,
+  type LedgerCommandPublisher,
+} from "../services/ledger-command-publisher";
 import type { ServiceContainerDependencies } from "../services/container";
 
 export class InMemoryPaymentIntentRepository implements PaymentIntentRepository {
@@ -138,7 +142,12 @@ export class InMemoryCheckoutSessionRepository implements CheckoutSessionReposit
 export class InMemoryLegalEntityRepository implements LegalEntityRepository {
   private readonly entitiesByTenant = new Map<string, Map<string, LegalEntityRecord>>();
 
-  constructor(seed?: Record<string, Array<{ id: string; status?: "active" | "suspended" }>>) {
+  constructor(
+    seed?: Record<
+      string,
+      Array<{ id: string; status?: "active" | "suspended"; country?: string }>
+    >,
+  ) {
     if (!seed) {
       return;
     }
@@ -149,6 +158,7 @@ export class InMemoryLegalEntityRepository implements LegalEntityRepository {
         tenantEntities.set(entity.id, {
           id: entity.id,
           tenant_id: tenant,
+          country: entity.country ?? "US",
           status: entity.status ?? "active",
         });
       });
@@ -186,6 +196,7 @@ export class CapturingDomainEventPublisher implements DomainEventPublisher {
 
 export function createTestDependencies(
   domainEventPublisher: DomainEventPublisher = new NoopDomainEventPublisher(),
+  ledgerCommandPublisher: LedgerCommandPublisher = new NoopLedgerCommandPublisher(),
 ): ServiceContainerDependencies {
   let now = 1_760_000_000;
 
@@ -193,14 +204,15 @@ export function createTestDependencies(
     payment_intent_repository: new InMemoryPaymentIntentRepository(),
     legal_entity_repository: new InMemoryLegalEntityRepository({
       tnt_test: [
-        { id: "le_1", status: "active" },
-        { id: "le_2", status: "active" },
-        { id: "le_suspended", status: "suspended" },
+        { id: "le_1", status: "active", country: "US" },
+        { id: "le_2", status: "active", country: "BR" },
+        { id: "le_suspended", status: "suspended", country: "US" },
       ],
     }),
     quote_repository: new InMemoryQuoteRepository(),
     checkout_session_repository: new InMemoryCheckoutSessionRepository(),
     domain_event_publisher: domainEventPublisher,
+    ledger_command_publisher: ledgerCommandPublisher,
     now: () => {
       now += 1;
       return now;

@@ -43,5 +43,6 @@ export interface RequestContext {
     requires_auth: boolean;
     requires_idempotency: boolean;
     required_scopes: readonly string[];
+    allow_operational_bypass: boolean;
   };
 }

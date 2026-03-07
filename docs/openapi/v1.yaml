@@ -1,247 +1,138 @@
 openapi: 3.0.3
 info:
-  title: Pagooz API
-  version: "1.0"
+  title: Pagooz Core API
+  version: "0.1"
+  description: Core Worker foundation API surface.
 servers:
-  - url: https://api.pagooz.com
+  - url: http://localhost:8787
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
 
 paths:
   /health:
     get:
-      summary: Core Worker health check
+      summary: Worker health check
       responses:
         "200":
           description: Healthy
 
   /ready:
     get:
-      summary: Core Worker readiness check
+      summary: Worker readiness check
       responses:
         "200":
           description: Ready
 
   /version:
     get:
-      summary: Core Worker version metadata
+      summary: Worker version metadata
       responses:
         "200":
-          description: Version info
+          description: Version payload
 
   /v1/payment_intents:
     post:
-      summary: Create PaymentIntent
+      summary: Create payment intent
       security:
-        - bearerAuth: []
-        - apiKeyAuth: []
-      parameters:
-        - $ref: "#/components/parameters/TenantHeader"
-        - $ref: "#/components/parameters/ModeHeader"
-        - $ref: "#/components/parameters/IdempotencyHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreatePaymentIntentRequest"
+        - ApiKeyAuth: []
       responses:
         "201":
-          description: PaymentIntent created
+          description: Payment intent created
+        "400":
+          description: Validation or context error
+        "403":
+          description: Scope denied
     get:
-      summary: List PaymentIntents
+      summary: List payment intents
       security:
-        - bearerAuth: []
-        - apiKeyAuth: []
-      parameters:
-        - $ref: "#/components/parameters/TenantHeader"
-        - $ref: "#/components/parameters/ModeHeader"
+        - ApiKeyAuth: []
       responses:
         "200":
-          description: PaymentIntents list
+          description: Payment intent list
 
   /v1/payment_intents/{id}:
     get:
-      summary: Get PaymentIntent by id
+      summary: Get payment intent by id
       security:
-        - bearerAuth: []
-        - apiKeyAuth: []
+        - ApiKeyAuth: []
       parameters:
-        - $ref: "#/components/parameters/TenantHeader"
-        - $ref: "#/components/parameters/ModeHeader"
-        - in: path
-          name: id
+        - name: id
+          in: path
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: PaymentIntent
+          description: Payment intent
         "404":
           description: Not found
 
   /v1/quotes:
     post:
-      summary: Create Quote
+      summary: Create quote
       security:
-        - bearerAuth: []
-        - apiKeyAuth: []
-      parameters:
-        - $ref: "#/components/parameters/TenantHeader"
-        - $ref: "#/components/parameters/ModeHeader"
-        - $ref: "#/components/parameters/IdempotencyHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateQuoteRequest"
+        - ApiKeyAuth: []
       responses:
         "201":
           description: Quote created
+        "400":
+          description: Validation or context error
+        "404":
+          description: Payment intent not found
 
   /v1/quotes/{id}:
     get:
-      summary: Get Quote by id
+      summary: Get quote by id
       security:
-        - bearerAuth: []
-        - apiKeyAuth: []
+        - ApiKeyAuth: []
       parameters:
-        - $ref: "#/components/parameters/TenantHeader"
-        - $ref: "#/components/parameters/ModeHeader"
-        - in: path
-          name: id
+        - name: id
+          in: path
           required: true
           schema:
             type: string
       responses:
         "200":
           description: Quote
+        "404":
+          description: Not found
 
   /v1/checkout_sessions:
-    get:
-      summary: List Checkout Sessions
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
-      parameters:
-        - $ref: "#/components/parameters/TenantHeader"
-        - $ref: "#/components/parameters/ModeHeader"
-      responses:
-        "200":
-          description: Checkout sessions list
     post:
-      summary: Create Checkout Session
+      summary: Create checkout session
       security:
-        - bearerAuth: []
-        - apiKeyAuth: []
-      parameters:
-        - $ref: "#/components/parameters/TenantHeader"
-        - $ref: "#/components/parameters/ModeHeader"
-        - $ref: "#/components/parameters/IdempotencyHeader"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateCheckoutSessionRequest"
+        - ApiKeyAuth: []
       responses:
         "201":
           description: Checkout session created
+        "400":
+          description: Validation error
+    get:
+      summary: List checkout sessions
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Checkout session list
 
   /v1/checkout_sessions/{id}:
     get:
-      summary: Get Checkout Session by id
+      summary: Get checkout session by id
       security:
-        - bearerAuth: []
-        - apiKeyAuth: []
+        - ApiKeyAuth: []
       parameters:
-        - $ref: "#/components/parameters/TenantHeader"
-        - $ref: "#/components/parameters/ModeHeader"
-        - in: path
-          name: id
+        - name: id
+          in: path
           required: true
           schema:
             type: string
       responses:
         "200":
           description: Checkout session
-
-components:
-  parameters:
-    TenantHeader:
-      in: header
-      name: X-Tenant-Id
-      required: true
-      schema:
-        type: string
-    ModeHeader:
-      in: header
-      name: X-Mode
-      required: true
-      schema:
-        type: string
-        enum: [sandbox, live]
-    IdempotencyHeader:
-      in: header
-      name: Idempotency-Key
-      required: true
-      schema:
-        type: string
-
-  schemas:
-    CreatePaymentIntentRequest:
-      type: object
-      required: [legal_entity_id, amount, currency]
-      properties:
-        legal_entity_id:
-          type: string
-        amount:
-          type: integer
-        currency:
-          type: string
-        payer_country:
-          type: string
-        settlement_term:
-          type: string
-        fee_strategy:
-          type: object
-          additionalProperties: true
-        metadata:
-          type: object
-          additionalProperties: true
-
-    CreateQuoteRequest:
-      type: object
-      required: [payment_intent_id, payment_method]
-      properties:
-        payment_intent_id:
-          type: string
-        payment_method:
-          type: string
-        installments:
-          type: integer
-
-    CreateCheckoutSessionRequest:
-      type: object
-      required: [payment_intent_id]
-      properties:
-        payment_intent_id:
-          type: string
-        quote_id:
-          type: string
-        locale:
-          type: string
-        expires_in_seconds:
-          type: integer
-
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-    apiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-API-Key
-
-security:
-  - bearerAuth: []
-  - apiKeyAuth: []
+        "404":
+          description: Not found

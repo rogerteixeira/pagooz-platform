@@ -13,12 +13,18 @@ import type {
   QuoteRepository,
 } from "../repositories/types";
 import { CoreCheckoutSessionService } from "./checkout-session-service";
+import { CorridorContextResolver } from "./corridor-context-resolver";
 import {
   NoopDomainEventPublisher,
   QueueDomainEventSink,
   SinkBackedDomainEventPublisher,
   type DomainEventPublisher,
 } from "./domain-event-publisher";
+import {
+  NoopLedgerCommandPublisher,
+  QueueLedgerCommandPublisher,
+  type LedgerCommandPublisher,
+} from "./ledger-command-publisher";
 import { CorePaymentIntentService } from "./payment-intent-service";
 import { CoreQuoteService } from "./quote-service";
 import type { CoreServices } from "./types";
@@ -29,6 +35,7 @@ export interface ServiceContainerDependencies {
   quote_repository: QuoteRepository;
   checkout_session_repository: CheckoutSessionRepository;
   domain_event_publisher: DomainEventPublisher;
+  ledger_command_publisher: LedgerCommandPublisher;
   now: () => number;
 }
 
@@ -48,6 +55,9 @@ export function createRuntimeDependencies(env: CoreEnv): ServiceContainerDepende
     domain_event_publisher: env.Q_DOMAIN_EVENTS
       ? new SinkBackedDomainEventPublisher(new QueueDomainEventSink(env.Q_DOMAIN_EVENTS))
       : new NoopDomainEventPublisher(),
+    ledger_command_publisher: env.Q_LEDGER_COMMANDS
+      ? new QueueLedgerCommandPublisher(env.Q_LEDGER_COMMANDS)
+      : new NoopLedgerCommandPublisher(),
     now: nowUnixSeconds,
   };
 }
@@ -58,6 +68,7 @@ export function createServices(
 ): CoreServices {
   const pricingRules = new InCodePricingRuleProvider();
   const economicEngine = new EconomicEngineV1(pricingRules, dependencies.now);
+  const corridorResolver = new CorridorContextResolver();
 
   return {
     payment_intents: new CorePaymentIntentService(
@@ -69,8 +80,11 @@ export function createServices(
     quotes: new CoreQuoteService(
       dependencies.quote_repository,
       dependencies.payment_intent_repository,
+      dependencies.legal_entity_repository,
       dependencies.domain_event_publisher,
+      dependencies.ledger_command_publisher,
       economicEngine,
+      corridorResolver,
       dependencies.now,
     ),
     checkout_sessions: new CoreCheckoutSessionService(
